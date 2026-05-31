@@ -16,7 +16,10 @@ dependencies = [
     "alembic (>=1.18.4,<2.0.0)",
     "python-jose (>=3.5.0,<4.0.0)",
     "passlib (>=1.7.4,<2.0.0)",
-    "python-multipart (>=0.0.29,<0.0.30)"
+    "python-multipart (>=0.0.29,<0.0.30)",
+    "psycopg2-binary (>=2.9.12,<3.0.0)",
+    "email-validator (>=2.3.0,<3.0.0)",
+    "bcrypt (==4.0.1)"
 ]
 
 [tool.poetry]
@@ -48,4 +51,4 @@ select = [
     "B",
     "UP",
 ]
-ignore = []
+ignore = ["B008"]
