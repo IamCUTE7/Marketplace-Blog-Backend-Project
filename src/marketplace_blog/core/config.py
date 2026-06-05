@@ -21,9 +21,15 @@ class Settings(BaseSettings):
         "postgresql+asyncpg://marketplace:marketplace@127.0.0.1:5433/marketplace_blog"
     )
 
+    mail_host: str
+    mail_port: int
+    mail_username: str
+    mail_password: str
+    mail_from: str
+
     test_database_url: str = "postgresql+asyncpg://marketplace:marketplace@127.0.0.1:5433/marketplace_blog_test"
 
-    rabbitmq_url: str = "amqp://guest:guest@localhost:5672//"
+    rabbitmq_url: str = "amqp://bloguser:blogpass@localhost:5672/%2f"
 
     minio_endpoint_url: str = "http://localhost:9000"
     minio_access_key: str = "minioadmin"

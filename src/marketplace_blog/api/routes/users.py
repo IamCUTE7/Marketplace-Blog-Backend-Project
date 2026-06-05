@@ -1,12 +1,15 @@
+import json
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
+from loguru import logger
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from marketplace_blog.api.routes.login import get_current_user_from_token
 from marketplace_blog.core.hashing import Hasher
 from marketplace_blog.db.session import get_db
+from marketplace_blog.rabbit.producer import send_message
 from marketplace_blog.repositories.users import UserRepository
 from marketplace_blog.schemas.user import UserCreate, UserRead, UserUpdate
 
@@ -41,7 +44,20 @@ async def create_user(body: UserCreate, db: AsyncSession = Depends(get_db)) -> U
             hashed_password=Hasher.get_password_hash(body.password),
         )
 
+        await send_message(
+            json.dumps(
+                {
+                    "event": "user_registered",
+                    "user_id": str(user.user_id),
+                    "email": user.email,
+                    "name": user.name,
+                }
+            )
+        )
+
         await db.commit()
+
+        logger.info("User {} created", user.email)
 
     except IntegrityError as error:
         await db.rollback()
@@ -68,6 +84,8 @@ async def delete_user(
 
         await db.commit()
 
+        logger.info("User with id={} was deleted", user_id)
+
     except IntegrityError as error:
         await db.rollback()
         user_repo.handle_integrity_error(error)
@@ -84,10 +102,10 @@ async def update_user(
 ) -> UserRead:
     user_repo = UserRepository(db)
 
-    update_data = body.model_dump(exclude_none=True)
+    updated_data = body.model_dump(exclude_none=True)
 
     try:
-        updated_user_id = await user_repo.update_user(user_id=user_id, **update_data)
+        updated_user_id = await user_repo.update_user(user_id=user_id, **updated_data)
 
         if updated_user_id is None:
             raise HTTPException(
@@ -95,6 +113,8 @@ async def update_user(
             )
 
         await db.commit()
+
+        logger.info("User with id={} was updated", user_id)
 
     except IntegrityError as error:
         await db.rollback()

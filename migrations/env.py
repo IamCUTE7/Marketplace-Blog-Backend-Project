@@ -5,9 +5,13 @@ from pathlib import Path
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
+from marketplace_blog.db.base import Base
+
+target_metadata = Base.metadata
+
+
 sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
 
-from marketplace_blog.db.base import Base
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

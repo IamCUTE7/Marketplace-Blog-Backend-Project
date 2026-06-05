@@ -19,8 +19,6 @@ class UserRepository:
 
         user = result.scalar_one_or_none()
 
-        print("FROM DB:", user.is_active if user else None)
-
         return user
 
     async def create_user(

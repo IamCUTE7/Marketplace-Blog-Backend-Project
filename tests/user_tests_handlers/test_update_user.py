@@ -179,6 +179,7 @@ async def test_user_duplicate_email_error(
     user_data_updated = {"email": user_data_2["email"]}
 
     user_1 = await create_user_in_database(**user_data_1)
+    await create_user_in_database(**user_data_2)
 
     response = await client.patch(
         f"/api/v1/users/{user_1.user_id}",
