@@ -1,8 +1,6 @@
 from uuid import UUID
 
-from fastapi import HTTPException
 from sqlalchemy import and_, select, update
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from marketplace_blog.models.user import User
@@ -71,10 +69,3 @@ class UserRepository:
         result = await self.session.execute(query)
 
         return result.scalar_one_or_none()
-
-    @staticmethod
-    def handle_integrity_error(error: IntegrityError) -> None:
-        if "users_email_key" in str(error.orig):
-            raise HTTPException(status_code=409, detail="Email already exists")
-
-        raise HTTPException(status_code=500, detail="Database error")

@@ -6,54 +6,37 @@ from fastapi import (
     Depends,
     HTTPException,
 )
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.security import OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
 )
 
 from marketplace_blog.core.config import get_settings
-from marketplace_blog.core.hashing import (
-    Hasher,
-)
 from marketplace_blog.core.security import (
     create_access_token,
+    oauth2_scheme,
 )
 from marketplace_blog.db.session import (
     get_db,
-)
-from marketplace_blog.repositories.users import (
-    UserRepository,
 )
 from marketplace_blog.schemas.token import (
     Token,
 )
 from marketplace_blog.schemas.user import UserRead
-
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login/token")
+from marketplace_blog.services.users import UserService
 
 settings = get_settings()
 login_router = APIRouter()
-
-
-async def authenticate_user(email: str, password: str, db: AsyncSession):
-    user_repo = UserRepository(db)
-    user = await user_repo.get_user_by_email(email=email)
-
-    if user is None:
-        return None
-
-    if not Hasher.verify_password(password, user.hashed_password):
-        return None
-
-    return user
 
 
 @login_router.post("/token", response_model=Token)
 async def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = Depends(get_db)
 ):
-    user = await authenticate_user(
+    service = UserService(db)
+
+    user = await service.authenticate_user(
         email=form_data.username, password=form_data.password, db=db
     )
 
@@ -87,9 +70,9 @@ async def get_current_user_from_token(
     except JWTError as err:
         raise credentials_exception from err
 
-    user_repo = UserRepository(db)
+    service = UserService(db)
 
-    user = await user_repo.get_user_by_id(user_id=user_id)
+    user = await service.get_user_by_id(user_id=user_id)
 
     if user is None:
         raise credentials_exception

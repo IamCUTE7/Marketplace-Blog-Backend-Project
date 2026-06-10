@@ -1,10 +1,13 @@
 from datetime import datetime, timedelta
 
+from fastapi.security import OAuth2PasswordBearer
 from jose import jwt
 
 from marketplace_blog.core.config import get_settings
 
 settings = get_settings()
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login/token")
 
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None):

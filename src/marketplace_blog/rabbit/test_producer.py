@@ -1,8 +1,10 @@
 import asyncio
+import sys
 
-from marketplace_blog.rabbit.producer import (
-    send_message,
-)
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
+from marketplace_blog.rabbit.producer import send_message
 
 
 async def main():

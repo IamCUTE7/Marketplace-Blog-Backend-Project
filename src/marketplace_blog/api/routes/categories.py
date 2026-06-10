@@ -6,31 +6,31 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from marketplace_blog.db.session import get_db
-from marketplace_blog.repositories.categories import CategoryRepository
 from marketplace_blog.schemas.category import (
     CategoryCreate,
     CategoryRead,
     CategoryUpdate,
 )
+from marketplace_blog.services.categories import CategoryService
 
 router = APIRouter()
 
 
 @router.get("/", response_model=list[CategoryRead])
 async def get_categories(db: AsyncSession = Depends(get_db)):
-    category_repo = CategoryRepository(db)
+    service = CategoryService(db)
 
-    categories = await category_repo.get_categories()
+    categories = await service.get_categories()
 
     return [CategoryRead.model_validate(category) for category in categories]
 
 
 @router.post("/", response_model=CategoryRead, status_code=201)
 async def create_category(body: CategoryCreate, db: AsyncSession = Depends(get_db)):
-    category_repo = CategoryRepository(db)
+    service = CategoryService(db)
 
     try:
-        category = await category_repo.create_category(name=body.name)
+        category = await service.create_category(body)
 
         await db.commit()
 
@@ -39,20 +39,22 @@ async def create_category(body: CategoryCreate, db: AsyncSession = Depends(get_d
     except IntegrityError as err:
         await db.rollback()
 
-        raise HTTPException(status_code=409, detail="Category already exists") from err
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Category already exists"
+        ) from err
 
     return CategoryRead.model_validate(category)
 
 
 @router.get("/{category_id}", response_model=CategoryRead)
 async def get_category(category_id: UUID, db: AsyncSession = Depends(get_db)):
-    category_repo = CategoryRepository(db)
+    service = CategoryService(db)
 
-    category = await category_repo.get_category_by_id(category_id)
+    category = await service.get_category_by_id(category_id)
 
     if category is None:
         raise HTTPException(
-            status_code=404,
+            status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Category with id={category_id} not found",
         )
 
@@ -65,19 +67,19 @@ async def update_category(
     body: CategoryUpdate,
     db: AsyncSession = Depends(get_db),
 ):
-    category_repo = CategoryRepository(db)
+    service = CategoryService(db)
 
     updated_data = body.model_dump(exclude_none=True)
 
     try:
-        updated_category_id = await category_repo.update_category(
+        updated_category_id = await service.update_category(
             category_id=category_id,
             **updated_data,
         )
 
         if updated_category_id is None:
             raise HTTPException(
-                status_code=404,
+                status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Category with id={category_id} not found",
             )
 
@@ -90,7 +92,7 @@ async def update_category(
 
         raise HTTPException(status_code=409, detail="Category already exists") from err
 
-    category = await category_repo.get_category_by_id(updated_category_id)
+    category = await service.get_category_by_id(updated_category_id)
 
     return CategoryRead.model_validate(category)
 
@@ -100,15 +102,15 @@ async def delete_category(
     category_id: UUID,
     db: AsyncSession = Depends(get_db),
 ):
-    category_repo = CategoryRepository(db)
+    service = CategoryService(db)
 
-    deleted_category_id = await category_repo.delete_category(
+    deleted_category_id = await service.delete_category(
         category_id=category_id,
     )
 
     if deleted_category_id is None:
         raise HTTPException(
-            status_code=404,
+            status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Category with id={category_id} not found",
         )
 

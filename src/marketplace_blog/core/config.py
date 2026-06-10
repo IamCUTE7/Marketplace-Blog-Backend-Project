@@ -17,9 +17,7 @@ class Settings(BaseSettings):
     environment: str = "local"
     debug: bool = True
 
-    database_url: str = (
-        "postgresql+asyncpg://marketplace:marketplace@127.0.0.1:5433/marketplace_blog"
-    )
+    database_url: str
 
     mail_host: str
     mail_port: int
@@ -29,7 +27,7 @@ class Settings(BaseSettings):
 
     test_database_url: str = "postgresql+asyncpg://marketplace:marketplace@127.0.0.1:5433/marketplace_blog_test"
 
-    rabbitmq_url: str = "amqp://bloguser:blogpass@localhost:5672/%2f"
+    rabbitmq_url: str
 
     minio_endpoint_url: str = "http://localhost:9000"
     minio_access_key: str = "minioadmin"
