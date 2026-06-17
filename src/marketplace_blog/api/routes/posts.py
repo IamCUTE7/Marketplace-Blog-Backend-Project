@@ -1,0 +1,104 @@
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from marketplace_blog.api.routes.login import get_current_user_from_token
+from marketplace_blog.db.session import get_db
+from marketplace_blog.schemas.post import PostCreate, PostRead, PostUpdate
+from marketplace_blog.services.posts import PostService
+
+router = APIRouter()
+
+
+@router.get("/{post_id}", status_code=200)
+async def get_post(post_id: UUID, db: AsyncSession = Depends(get_db)) -> PostRead:
+    service = PostService(db)
+
+    post = await service.get_post_by_id(post_id=post_id)
+
+    if post is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Post with id={post_id} not found",
+        )
+
+    return PostRead.model_validate(post)
+
+
+@router.post("/", response_model=PostRead, status_code=201)
+async def create_post(
+    body: PostCreate,
+    current_user=Depends(get_current_user_from_token),
+    db: AsyncSession = Depends(get_db),
+) -> PostRead:
+    service = PostService(db)
+
+    post = await service.create_post(
+        title=body.title,
+        content=body.content,
+        author_id=current_user.user_id,
+        category_id=body.category_id,
+    )
+    return PostRead.model_validate(post)
+
+
+@router.patch("/{post_id}", response_model=PostRead)
+async def update_post(
+    post_id: UUID,
+    body: PostUpdate,
+    current_user=Depends(get_current_user_from_token),
+    db: AsyncSession = Depends(get_db),
+) -> PostRead:
+    service = PostService(db)
+
+    updated_data = body.model_dump(exclude_none=True)
+
+    updated_post = await service.update_post(post_id=post_id, **updated_data)
+
+    if updated_post is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Post with id={post_id} not found",
+        )
+
+    return PostRead.model_validate(updated_post)
+
+
+@router.delete("/{post_id}", status_code=204)
+async def delete_post(
+    post_id: UUID,
+    current_user=Depends(get_current_user_from_token),
+    db: AsyncSession = Depends(get_db),
+):
+    service = PostService(db)
+
+    deleted_post_id = await service.delete_post(post_id=post_id)
+
+    if deleted_post_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Post with id={post_id} not found",
+        )
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/", response_model=list[PostRead])
+async def get_posts(
+    page_number: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1),
+    category_id: UUID | None = None,
+    search: str | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    service = PostService(db)
+
+    posts = await service.get_posts(
+        page_number=page_number,
+        page_size=page_size,
+        category_id=category_id,
+        search=search,
+    )
+
+    return [PostRead.model_validate(post) for post in posts]
