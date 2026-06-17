@@ -1,3 +1,8 @@
+import json
+
+from loguru import logger
+
+from marketplace_blog.rabbit.producer import send_message
 from marketplace_blog.repositories.posts import PostRepository
 
 
@@ -14,10 +19,57 @@ class PostService:
         )
 
     async def create_post(self, title, content, author_id, category_id):
-        return await self.post_repo.create_post(title, content, author_id, category_id)
+        post = await self.post_repo.create_post(
+            title=title,
+            content=content,
+            author_id=author_id,
+            category_id=category_id,
+        )
+        await self.post_repo.session.commit()
 
-    async def update_post(self, post_id, **kwaargs):
-        return await self.post_repo.update_post(post_id, **kwaargs)
+        logger.info("Post {} was created", post.title)
+
+        await send_message(
+            json.dumps(
+                {
+                    "event": "post_created",
+                    "post_id": str(post.post_id),
+                    "title": post.title,
+                }
+            )
+        )
+        return post
+
+    async def update_post(self, post_id, **kwargs):
+        updated_post_id = await self.post_repo.update_post(post_id=post_id, **kwargs)
+
+        if updated_post_id is None:
+            return None
+
+        await self.post_repo.session.commit()
+
+        logger.info("Post with id={} was updated", updated_post_id)
+
+        await send_message(
+            json.dumps({"event": "post_updated", "post_id": str(updated_post_id)})
+        )
+
+        updated_post = await self.post_repo.get_post_by_id(updated_post_id)
+
+        return updated_post
 
     async def delete_post(self, post_id):
-        return await self.post_repo.delete_post(post_id)
+        deleted_post_id = await self.post_repo.delete_post(post_id=post_id)
+
+        if deleted_post_id is None:
+            return None
+
+        await self.post_repo.session.commit()
+
+        logger.info("Post with id={} was deleted", deleted_post_id)
+
+        await send_message(
+            json.dumps({"event": "post_deleted", "post_id": str(deleted_post_id)})
+        )
+
+        return deleted_post_id

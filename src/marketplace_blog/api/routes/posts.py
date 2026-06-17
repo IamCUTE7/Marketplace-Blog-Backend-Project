@@ -1,13 +1,10 @@
-import json
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from marketplace_blog.api.routes.login import get_current_user_from_token
 from marketplace_blog.db.session import get_db
-from marketplace_blog.rabbit.producer import send_message
 from marketplace_blog.schemas.post import PostCreate, PostRead, PostUpdate
 from marketplace_blog.services.posts import PostService
 
@@ -43,16 +40,6 @@ async def create_post(
         author_id=current_user.user_id,
         category_id=body.category_id,
     )
-    await db.commit()
-
-    logger.info("Post {} was created", post.title)
-
-    await send_message(
-        json.dumps(
-            {"event": "post_created", "post_id": str(post.post_id), "title": post.title}
-        )
-    )
-
     return PostRead.model_validate(post)
 
 
@@ -67,23 +54,13 @@ async def update_post(
 
     updated_data = body.model_dump(exclude_none=True)
 
-    updated_post_id = await service.update_post(post_id=post_id, **updated_data)
+    updated_post = await service.update_post(post_id=post_id, **updated_data)
 
-    if updated_post_id is None:
+    if updated_post is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Post with id={post_id} not found",
         )
-
-    await db.commit()
-
-    logger.info("Post with id={} was updated", updated_post_id)
-
-    await send_message(
-        json.dumps({"event": "post_updated", "post_id": str(updated_post_id)})
-    )
-
-    updated_post = await service.get_post_by_id(updated_post_id)
 
     return PostRead.model_validate(updated_post)
 
@@ -103,14 +80,6 @@ async def delete_post(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Post with id={post_id} not found",
         )
-
-    await db.commit()
-
-    logger.info("Post with id={} was deleted", deleted_post_id)
-
-    await send_message(
-        json.dumps({"event": "post_deleted", "post_id": str(deleted_post_id)})
-    )
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
